@@ -11,7 +11,89 @@
 #include <glm/gtx/quaternion.hpp>
 
 namespace zeno {
+    CameraObject CameraObjFromPrim(PrimitiveObject &obj){
+        CameraObject cam;
+        UserData & data = obj.userData();
+        if (data.get2<bool>("isCamera",false)){
+            cam.pos = obj.verts.at(0);
+            cam.up = obj.verts.at(1);
+            cam.view = obj.verts.at(2);
+            
+        }
+    }
 
+struct FakePrimCamera : INode {
+    virtual void apply() override {
+        auto prim = std::make_unique<PrimitiveObject>();
+
+        auto pos = get_input2<vec3f>("pos");
+        auto up = get_input2<vec3f>("up");
+        auto view = get_input2<vec3f>("view");
+        auto far = get_input2<float>("far");
+        auto near = get_input2<float>("near");
+        auto fov = get_input2<float>("fov");
+        auto aperture = get_input2<float>("aperture");
+        auto focalPlaneDistance = get_input2<float>("focalPlaneDistance");
+        bool ViewAsTarget = get_input2<bool>("View as Target");
+        if (ViewAsTarget){
+            view = view - pos;
+        }
+        view = normalizeSafe(view);
+        up = normalizeSafe(up);
+        auto right = cross(view,up);
+        right = normalizeSafe(right);
+
+        auto &verts = prim->verts;
+        verts.push_back(pos);
+        verts.push_back(up);
+        verts.push_back(view);
+        verts.push_back(view+pos);
+        verts.push_back(pos-(0.5*up) - (0.5*view) - (0.5*right));
+        verts.push_back(pos-(0.5*up) - (0.5*view) + (0.5*right));
+        verts.push_back(pos-(0.5*up) + (0.5*view) + (0.5*right));
+        verts.push_back(pos-(0.5*up) + (0.5*view) - (0.5*right));
+        verts.push_back(pos+(0.5*up) - (0.5*view) - (0.5*right));
+        verts.push_back(pos+(0.5*up) - (0.5*view) + (0.5*right));
+        verts.push_back(pos+(0.5*up) + (0.5*view) + (0.5*right));
+        verts.push_back(pos+(0.5*up) + (0.5*view) - (0.5*right));
+        prim->tris.push_back(vec3i(4,5,7));
+        prim->tris.push_back(vec3i(5,6,7));
+        prim->lines.push_back(vec2i(0,3));
+        
+        UserData &data = prim->userData();
+        data.set2("far",std::move(far));
+        data.set2("near",std::move(near));
+        data.set2("fov",std::move(fov));
+        data.set2("aperture",std::move(aperture));
+        data.set2("focalPlaneDistance",std::move(focalPlaneDistance));
+        bool aa = false;
+
+        data.set2("isCamera",std::move(true));
+        data.set2("visible",std::move(0));
+
+        set_output("FakePrim", std::move(prim));
+    }
+};
+
+ZENO_DEFNODE(FakePrimCamera)({
+    {
+        {"vec3f", "pos", "0,0,5"},
+        {"vec3f", "up", "0,1,0"},
+        {"bool","View as Target","false"},
+        {"vec3f", "view", "0,0,-1"},
+        {"float", "near", "0.01"},
+        {"float", "far", "20000"},
+        {"float", "fov", "45"},
+        {"float", "aperture", "11"},
+        {"float", "focalPlaneDistance", "2.0"},
+    },
+    {
+        {"PrimitiveObject", "FakePrim"},
+    },
+    {
+    },
+    {"shader"},
+});
 struct MakeCamera : INode {
     virtual void apply() override {
         auto camera = std::make_unique<CameraObject>();

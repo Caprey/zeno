@@ -750,6 +750,9 @@ struct GraphicsManager {
                 {
                     scene->camera->setCamera(cam->get());     // pyb fix
                 }
+                if (obj->userData().get2<bool>("isCamera", false)) {
+                    scene->camera->setCamera(obj->get());     // pyb fix
+                }
 
                 auto ig = std::make_unique<ZxxGraphic>(key, obj);
 
